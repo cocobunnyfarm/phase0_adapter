@@ -10,6 +10,7 @@ find_package(std_msgs REQUIRED)
 find_package(CUDAToolkit REQUIRED)
 
 add_executable(simple_gpu_adapter_test src/simple_gpu_adapter_test.cpp)
+add_executable(simple_gpu_adapter_test_improved src/simple_gpu_adapter_test_improved.cpp)
 
 # 1. Manual Link for CUDA (This needs keywords like PRIVATE)
 target_link_libraries(simple_gpu_adapter_test 
@@ -17,6 +18,10 @@ target_link_libraries(simple_gpu_adapter_test
     CUDA::cudart
 )
 
+target_link_libraries(simple_gpu_adapter_test_improved 
+  # PRIVATE 
+    CUDA::cudart
+)
 # 2. ROS Helper for Includes and Linking (This fixes the missing .hpp error)
 # This macro handles the include paths for rclcpp and std_msgs automatically.
 ament_target_dependencies(simple_gpu_adapter_test 
@@ -24,5 +29,11 @@ ament_target_dependencies(simple_gpu_adapter_test
   std_msgs
 )
 
-install(TARGETS simple_gpu_adapter_test DESTINATION lib/${PROJECT_NAME})
+ament_target_dependencies(simple_gpu_adapter_test_improved 
+  rclcpp 
+  std_msgs
+)
+
+
+install(TARGETS simple_gpu_adapter_test simple_gpu_adapter_test_improved DESTINATION lib/${PROJECT_NAME})
 ament_package()
