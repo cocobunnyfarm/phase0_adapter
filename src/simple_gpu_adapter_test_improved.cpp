@@ -4,6 +4,15 @@
  * 1) Use Pinned Memory
  * cudaHostAlloc(&host_ptr, size, cudaHostAllocDefault);
  * 
+ * 
+ * cudaError_t cudaMemcpyAsync(
+    void* dst,
+    const void* src,
+    size_t count,
+    cudaMemcpyKind kind,
+    cudaStream_t stream
+  );
+ * 
  */
 
 #include <memory>
@@ -52,6 +61,8 @@ public:
   GpuBridgeNode() : Node("gpu_bridge_node", 
     rclcpp::NodeOptions().use_intra_process_comms(true)) 
   {
+    msg = std::make_unique<GpuBuffer>();
+    cudaMalloc(&msg->dev_ptr, sizeof(float));
 
 
     // Now the Publisher knows GpuBuffer has a TypeAdapter!
@@ -62,17 +73,19 @@ public:
         float host_val;
         cudaMemcpy(&host_val, msg.dev_ptr, sizeof(float), cudaMemcpyDeviceToHost);
         RCLCPP_INFO(this->get_logger(), "SUB: Got %f from GPU addr %p", host_val, (void*)msg.dev_ptr);
-        cudaFree(msg.dev_ptr);
+        // cudaFree(msg.dev_ptr);
       });
 
     timer_ = this->create_wall_timer(1s, [this]() {
-      auto msg = std::make_unique<GpuBuffer>();
-      cudaMalloc(&msg->dev_ptr, sizeof(float));
+      
       float val = 3.14159f;
       cudaMemcpy(msg->dev_ptr, &val, sizeof(float), cudaMemcpyHostToDevice);
       
       RCLCPP_INFO(this->get_logger(), "PUB: Sending GPU addr %p", (void*)msg->dev_ptr);
+      raw_device_ptr_ = msg->dev_ptr;
       pub_->publish(std::move(msg));
+      msg = std::make_unique<GpuBuffer>();
+      msg->dev_ptr = raw_device_ptr_;
     });
   }
 
@@ -80,6 +93,8 @@ private:
   rclcpp::Publisher<GpuBuffer>::SharedPtr pub_;
   rclcpp::Subscription<GpuBuffer>::SharedPtr sub_;
   rclcpp::TimerBase::SharedPtr timer_;
+  std::unique_ptr<GpuBuffer> msg;
+  float* raw_device_ptr_;
   
 };
 
