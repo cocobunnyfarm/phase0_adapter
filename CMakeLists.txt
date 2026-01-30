@@ -6,51 +6,46 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED) # Needed for components
 find_package(std_msgs REQUIRED)
 find_package(CUDAToolkit REQUIRED)
 
-# 1. Manual Link for CUDA (This needs keywords like PRIVATE)
+include_directories(include)
 
-
-add_executable(simple_gpu_adapter_test src/simple_gpu_adapter_test.cpp)
-
-target_link_libraries(simple_gpu_adapter_test 
-  # PRIVATE 
+# --- Publisher Component ---
+add_library(gpu_pub_component SHARED src/gpu_pub_component.cpp)
+target_link_libraries(gpu_pub_component 
+  PRIVATE 
     CUDA::cudart
+    rclcpp::rclcpp
+    rclcpp_components::component_manager # Explicitly link the component manager
+    std_msgs::std_msgs__rosidl_typesupport_cpp
 )
-ament_target_dependencies(simple_gpu_adapter_test 
-  rclcpp 
-  std_msgs
-)
+# We still need this to find the .hpp files!
+target_include_directories(gpu_pub_component PRIVATE include)
+rclcpp_components_register_nodes(gpu_pub_component "phase0_adapter::GpuPublisher")
 
-
-add_executable(simple_gpu_adapter_test_improved src/simple_gpu_adapter_test_improved.cpp)
-
-target_link_libraries(simple_gpu_adapter_test_improved 
-  # PRIVATE 
+# --- Do the same for the Subscriber ---
+add_library(gpu_sub_component SHARED src/gpu_sub_component.cpp)
+target_link_libraries(gpu_sub_component 
+  PRIVATE 
     CUDA::cudart
+    rclcpp::rclcpp
+    rclcpp_components::component_manager
+    std_msgs::std_msgs__rosidl_typesupport_cpp
+)
+target_include_directories(gpu_sub_component PRIVATE include)
+rclcpp_components_register_nodes(gpu_sub_component "phase0_adapter::GpuSubscriber")
+
+install(TARGETS gpu_pub_component gpu_sub_component
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin)
+
+install(DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
 )
 
-ament_target_dependencies(simple_gpu_adapter_test_improved 
-  rclcpp 
-  std_msgs
-)
-
-
-add_executable(adapter_sync_pinned_counter
- src/adapter_sync_pinned_counter.cpp)
-
-target_link_libraries(adapter_sync_pinned_counter 
-  # PRIVATE 
-    CUDA::cudart
-)
-
-ament_target_dependencies(adapter_sync_pinned_counter 
-  rclcpp 
-  std_msgs
-)
-# 2. ROS Helper for Includes and Linking (This fixes the missing .hpp error)
-# This macro handles the include paths for rclcpp and std_msgs automatically.
-
-install(TARGETS simple_gpu_adapter_test simple_gpu_adapter_test_improved adapter_sync_pinned_counter DESTINATION lib/${PROJECT_NAME})
 ament_package()
+
+
